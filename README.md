@@ -1,4 +1,6 @@
-# Amateur-God's ADB-Server Home assistant Addon
+# Atlas Commons ADB-Server Home assistant Addon
+
+Contributions welcome — see [CONTRIBUTING.md](.github/CONTRIBUTING.md). PRs require DCO sign-off (`git commit -s`).
 
 <!--[![GitHub Release][releases-shield]][releases]-->
 ![Project Stage][project-stage-shield]
@@ -20,7 +22,7 @@
 
 ## About
 
-Welcome to Amateur-God's Home Assistant Add-ons. This repository hosts the ADB-Server add-on, which provides an Android Debug Bridge (ADB) server for Home Assistant, including an ingress terminal for executing commands.
+Welcome to the Atlas Commons Home Assistant Add-ons. This repository hosts the ADB-Server add-on, which provides an Android Debug Bridge (ADB) server for Home Assistant, including an ingress terminal for executing commands.
 
 ## Add-ons
 
@@ -63,7 +65,7 @@ Key features include:
 1. **Add the Repository to Home Assistant:**
    - In Home Assistant, go to `Supervisor > Add-on Store`.
    - Click the three-dot menu at the top right and select `Repositories`.
-   - Add the following URL: `https://github.com/Amateur-God/Hassio-Addons`.
+   - Add the following URL: `https://github.com/Atlas-Commons/Hassio-Addons`.
 
 2. **Install the ADB-Server Add-on:**
    - Find the ADB-Server add-on in the list and click on it.
@@ -106,7 +108,7 @@ Got questions or need help?
 You have several options to get them answered:
 
 - The [Home Assistant Community Add-ons Discord chat server][discord] for add-on support and feature requests.-->
-- The [The Viking Studios chat server][discord-vs] for general Home Assistant discussions and questions.
+- The [Atlas Commons chat server][discord-vs] for general Home Assistant discussions and questions.
 <!--- The Home Assistant [Community Forum][forum].
 - Join the [Reddit subreddit][reddit] in [/r/homeassistant][reddit]
 -->
@@ -120,7 +122,7 @@ Thank you for your interest and contributions! :heart_eyes:
 
 ## Authors & Contributors
 
-This repository is maintained by [Amateur-God](https://github.com/Amateur-God). For a full list of all authors and contributors, check [the contributor's page][contributors].
+This repository is maintained by [Atlas Commons](https://github.com/Atlas-Commons). For a full list of all authors and contributors, check [the contributor's page][contributors].
 
 <!--
 ## Additional Home Assistant Add-ons
@@ -141,24 +143,24 @@ You should have received a copy of the GNU General Public License along with thi
 [amd64-shield]: https://img.shields.io/badge/amd64-yes-green.svg
 [armhf-shield]: https://img.shields.io/badge/armhf-yes-green.svg
 [armv7-shield]: https://img.shields.io/badge/armv7-yes-green.svg
-[commits-shield]: https://img.shields.io/github/commit-activity/y/Amateur-God/Hassio-Addons.svg
-[commits]: https://github.com/Amateur-God/Hassio-Addons/commits/main
-[contributors]: https://github.com/Amateur-God/Hassio-Addons/graphs/contributors
+[commits-shield]: https://img.shields.io/github/commit-activity/y/Atlas-Commons/Hassio-Addons.svg
+[commits]: https://github.com/Atlas-Commons/Hassio-Addons/commits/main
+[contributors]: https://github.com/Atlas-Commons/Hassio-Addons/graphs/contributors
 [discord-vs]: https://discord.gg/2gexJGFU8j
 [discord-shield]: https://img.shields.io/discord/1032437213100777502
 [discord]: discord.me/vikingstudios
-[docs]: https://github.com/Amateur-God/Hassio-Addons/blob/main/example/DOCS.md
+[docs]: https://github.com/Atlas-Commons/Hassio-Addons/blob/main/example/DOCS.md
 [forum-shield]: https://img.shields.io/badge/community-forum-brightgreen.svg
 [forum]: https://community.home-assistant.io/t/repository-community-hass-io-add-ons/24705?u=frenck
-[github-actions-shield]: https://github.com/Amateur-God/Hassio-Addons/actions/workflows/CI-CD.yaml/badge.svg
-[github-actions]: https://github.com/Amateur-God/Hassio-Addons/actions
+[github-actions-shield]: https://github.com/Atlas-Commons/Hassio-Addons/actions/workflows/CI-CD.yaml/badge.svg
+[github-actions]: https://github.com/Atlas-Commons/Hassio-Addons/actions
 [i386-shield]: https://img.shields.io/badge/i386-yes-green.svg
-[issue]: https://github.com/Amateur-God/Hassio-Addons/issues
-[license-shield]: https://img.shields.io/github/license/Amateur-God/Hassio-Addons.svg
+[issue]: https://github.com/Atlas-Commons/Hassio-Addons/issues
+[license-shield]: https://img.shields.io/github/license/Atlas-Commons/Hassio-Addons.svg
 [project-stage-shield]: https://img.shields.io/badge/project%20stage-production%20ready-brightgreen.svg
 [reddit]: https://reddit.com/r/homeassistant
-[releases-shield]: https://img.shields.io/github/release/Amateur-God/Hassio-Addons.svg
-[releases]: https://github.com/Amateur-God/Hassio-Addons/releases
-[repository]: https://github.com/Amateur-God/Hassio-Addons
+[releases-shield]: https://img.shields.io/github/release/Atlas-Commons/Hassio-Addons.svg
+[releases]: https://github.com/Atlas-Commons/Hassio-Addons/releases
+[repository]: https://github.com/Atlas-Commons/Hassio-Addons
 [docker-pulls-shield]: https://img.shields.io/docker/pulls/amateurgod/adb_server
 [docker-pulls]: https://hub.docker.com/r/amateurgod/adb_server

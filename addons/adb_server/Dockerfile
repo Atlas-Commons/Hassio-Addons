@@ -85,11 +85,11 @@ LABEL \
     io.hass.arch="${BUILD_ARCH}" \
     io.hass.type="addon" \
     io.hass.version=${BUILD_VERSION} \
-    maintainer="Amateur-God" \
+    maintainer="Atlas-Commons" \
     org.opencontainers.image.title="${BUILD_NAME}" \
     org.opencontainers.image.description="${BUILD_DESCRIPTION}" \
     org.opencontainers.image.vendor="AG Hassio Addons & Integrations" \
-    org.opencontainers.image.authors="Amateur-God" \
+    org.opencontainers.image.authors="Atlas-Commons" \
     org.opencontainers.image.licenses="GPLV3" \
     org.opencontainers.image.url="" \
     org.opencontainers.image.source="https://github.com/${BUILD_REPOSITORY}" \
