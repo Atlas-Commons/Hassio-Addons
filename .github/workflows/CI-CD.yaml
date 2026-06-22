@@ -88,7 +88,9 @@
             if ! git diff-index --quiet HEAD; then
               git commit -m "Update version in config.json and build.json"
               git pull origin ${{ github.ref }}
-              git push https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref }}
+              HOST="${{ github.server_url }}"
+              HOST="${HOST#https://}"
+              git push "https://${{ github.actor }}:${GITHUB_TOKEN}@${HOST}/${{ github.repository }}.git" "HEAD:${{ github.ref }}"
             else
               echo "No changes to commit"
             fi
@@ -181,7 +183,7 @@
 
     build_main_or_pr:
       name: Build ${{ matrix.architecture }} (Main or PR)
-      if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request')
+      if: ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request')) && contains(github.server_url, 'github.com')
       needs:
         information
       runs-on: ubuntu-latest
@@ -304,7 +306,7 @@
 
     build_other_branches:
       name: Build ${{ matrix.architecture }} (Other Branches)
-      if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+      if: github.event_name == 'push' && github.ref != 'refs/heads/main' && contains(github.server_url, 'github.com')
       needs:
         - information
         - lint-hadolint
@@ -431,6 +433,7 @@
 
     create_and_push_manifest_latest:
       name: Create and Push Docker Manifest
+      if: contains(github.server_url, 'github.com')
       runs-on: ubuntu-latest
       needs: build_main_or_pr
       steps:
@@ -503,6 +506,7 @@
 
     create_and_push_manifest_dev:
       name: Create and Push Docker Manifest (Development)
+      if: contains(github.server_url, 'github.com')
       runs-on: ubuntu-latest
       needs: build_other_branches
       steps:
@@ -579,6 +583,7 @@
 
 
     update_config_main_or_pr:
+      if: contains(github.server_url, 'github.com')
       runs-on: ubuntu-latest
       needs: build_main_or_pr
       steps:
@@ -616,10 +621,13 @@
                 git rebase --abort
                 git pull origin ${BRANCH_NAME}
               fi
-              git push https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${BRANCH_NAME}
+              HOST="${{ github.server_url }}"
+              HOST="${HOST#https://}"
+              git push "https://${{ github.actor }}:${GITHUB_TOKEN}@${HOST}/${{ github.repository }}.git" "HEAD:${BRANCH_NAME}"
             fi
 
     update_config_other_branches:
+      if: contains(github.server_url, 'github.com')
       runs-on: ubuntu-latest
       needs: build_other_branches
       steps:
@@ -657,7 +665,9 @@
                 git rebase --abort
                 git pull origin ${BRANCH_NAME}
               fi
-              git push https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${BRANCH_NAME}
+              HOST="${{ github.server_url }}"
+              HOST="${HOST#https://}"
+              git push "https://${{ github.actor }}:${GITHUB_TOKEN}@${HOST}/${{ github.repository }}.git" "HEAD:${BRANCH_NAME}"
             fi
 
     dco:
@@ -696,8 +706,8 @@
               echo "Information job failed or was skipped."
               exit 1
             fi
-            if [[ "${{ needs.build_main_or_pr.result }}" != "success" ]]; then
-              echo "Build (main or PR) job failed or was skipped."
+            if [[ "${{ needs.build_main_or_pr.result }}" != "success" && "${{ needs.build_main_or_pr.result }}" != "skipped" ]]; then
+              echo "Build (main or PR) job failed."
               exit 1
             fi
             if [[ "${{ github.event_name }}" == "pull_request" && "${{ needs.dco.result }}" != "success" ]]; then
