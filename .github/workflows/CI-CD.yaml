@@ -23,6 +23,8 @@
         - name: Find add-on directories
           id: folders
           run: |
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq jq
             ADDON_DIRS=$(find addons -mindepth 1 -maxdepth 1 -type d | jq -R -s -c 'split("\n") | map(select(length > 0))')
             echo "Found add-on directories: $ADDON_DIRS"
             echo "addon_dirs=$ADDON_DIRS" >> $GITHUB_OUTPUT
