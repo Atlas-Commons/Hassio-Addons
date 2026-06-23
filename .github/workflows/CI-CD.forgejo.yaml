@@ -12,32 +12,9 @@ on:
       - "main"
 
 jobs:
-    discover:
-      name: Discover Add-ons
-      if: contains(github.server_url, 'git.atlastechsolutions.co.uk')
-      runs-on: ubuntu-latest
-      outputs:
-        addon_dirs: ${{ steps.folders.outputs.addon_dirs }}
-      steps:
-        - name: Check out code from GitHub
-          uses: https://github.com/actions/checkout@v4
-          with:
-            token: ${{ secrets.FORGEJO_TOKEN }}
-        - name: Find add-on directories
-          id: folders
-          run: |
-            ADDON_DIRS=$(find addons -mindepth 1 -maxdepth 1 -type d | python3 -c "import json,sys; print(json.dumps([p.strip() for p in sys.stdin.read().splitlines() if p.strip()]))")
-            echo "Found add-on directories: $ADDON_DIRS"
-            echo "addon_dirs=${ADDON_DIRS}" >> "$GITHUB_OUTPUT"
-        - name: Debug - List directories
-          run: |
-            echo "Found add-on directories: ${{ steps.folders.outputs.addon_dirs }}"
-
     build_main_or_pr:
       name: Build ${{ matrix.architecture }} (Main or PR)
       if: contains(github.server_url, 'git.atlastechsolutions.co.uk') && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request'))
-      needs:
-        - discover
       runs-on: docker
       env:
         DOCKER_HOST: tcp://dind:2375
@@ -45,7 +22,7 @@ jobs:
         fail-fast: false
         matrix:
           architecture: ["aarch64", "amd64", "armhf", "armv7", "i386"]
-          folder: ${{ fromJson(needs.discover.outputs.addon_dirs) }}
+          folder: ["addons/adb_server"]
       outputs:
         version:  ${{ steps.set_version.outputs.version }}
         slug_lower: ${{ steps.convert.outputs.slug_lower }}
@@ -77,6 +54,10 @@ jobs:
           id: addon
           run: |
             FOLDER="${{ matrix.folder }}"
+            if [[ -z "$FOLDER" || ! -f "${FOLDER}/version.txt" ]]; then
+              echo "Invalid add-on folder: ${FOLDER:-<empty>}" >&2
+              exit 1
+            fi
             VERSION=$(cat "./${FOLDER}/version.txt")
             if [ "${{ github.ref }}" != "refs/heads/main" ]; then
               VERSION="dev-${VERSION}"
@@ -209,11 +190,21 @@ jobs:
             else
               echo "Cache directory /tmp/.docker-cache-new does not exist"
             fi
+        - name: Link container package to repository
+          if: steps.forgejo_login.outcome == 'success' && github.event_name == 'push'
+          env:
+            FORGEJO_USERNAME: ${{ secrets.FORGEJO_USERNAME }}
+            FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+          run: |
+            bash .github/scripts/forgejo-packages.sh link \
+              "${{ steps.convert.outputs.repository_owner_lower }}" \
+              container \
+              "${{ steps.convert.outputs.slug_lower }}" \
+              "${{ github.event.repository.name }}"
 
     forgejo_validate:
       name: Validate add-ons (Forgejo)
       if: ${{ !contains(github.server_url, 'github.com') }}
-      needs: discover
       runs-on: ubuntu-latest
       steps:
         - uses: https://github.com/actions/checkout@v4
@@ -260,11 +251,10 @@ jobs:
           (github.event_name == 'push' && github.ref == 'refs/heads/main')
         )
       runs-on: ubuntu-latest
-      needs: [discover, build_main_or_pr, forgejo_validate, dco]
+      needs: [build_main_or_pr, forgejo_validate, dco]
       steps:
         - name: Verify all CI jobs succeeded
           run: |
-            if [[ "${{ needs.discover.result }}" != "success" ]]; then exit 1; fi
             if [[ "${{ needs.forgejo_validate.result }}" != "success" ]]; then exit 1; fi
             if [[ "${{ github.ref }}" == "refs/heads/main" && "${{ needs.build_main_or_pr.result }}" != "success" && "${{ needs.build_main_or_pr.result }}" != "skipped" ]]; then exit 1; fi
             if [[ "${{ github.event_name }}" == "pull_request" && "${{ needs.dco.result }}" != "success" ]]; then exit 1; fi
