@@ -52,7 +52,7 @@
           with:
             fetch-depth: 0  # Ensure all tags are fetched
         - name: Install jq
-          run: command -v jq >/dev/null || (apt-get update -qq && apt-get install -y -qq jq)
+          run: command -v jq >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq jq)
         - name: Debug - Print matrix folder path
           run: |
             echo "Matrix folder path: ${{ matrix.folder }}"
@@ -64,7 +64,9 @@
             folder = './' + os.environ['FOLDER']
             cfg = json.load(open(folder + '/config.json'))
             out = open(os.environ['GITHUB_OUTPUT'], 'a')
-            out.write('architectures=' + json.dumps(cfg.get('arch', [])) + '\n')
+            out.write('architectures<<EOF\n')
+            out.write(json.dumps(cfg.get('arch', [])) + '\n')
+            out.write('EOF\n')
             out.write('build=' + folder + '/build.json\n')
             out.write('description=' + cfg.get('description', '') + '\n')
             out.write('name=' + cfg.get('name', '') + '\n')
