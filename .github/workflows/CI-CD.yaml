@@ -25,7 +25,11 @@
           run: |
             ADDON_DIRS=$(find addons -mindepth 1 -maxdepth 1 -type d | python3 -c "import json,sys; print(json.dumps([p.strip() for p in sys.stdin.read().splitlines() if p.strip()]))")
             echo "Found add-on directories: $ADDON_DIRS"
-            echo "addon_dirs=$ADDON_DIRS" >> $GITHUB_OUTPUT
+            {
+              echo 'addon_dirs<<EOF'
+              echo "$ADDON_DIRS"
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
         - name: Debug - List directories
           run: |
             echo "Found add-on directories: ${{ steps.folders.outputs.addon_dirs }}"
@@ -52,8 +56,11 @@
           with:
             fetch-depth: 0  # Ensure all tags are fetched
         - name: Install jq
-          if: contains(github.server_url, 'github.com')
-          run: sudo apt-get update -qq && sudo apt-get install -y -qq jq
+          run: |
+            if command -v sudo >/dev/null 2>&1; then SUDO=sudo; else SUDO=""; fi
+            export DEBIAN_FRONTEND=noninteractive
+            $SUDO apt-get update -qq
+            $SUDO apt-get install -y -qq jq
         - name: Debug - Print matrix folder path
           run: |
             echo "Matrix folder path: ${{ matrix.folder }}"
@@ -79,17 +86,16 @@
             VERSION=$(cat ./${{ matrix.folder }}/version.txt)
             echo "version=$VERSION" >> $GITHUB_OUTPUT
         - name: Ensure version is 'dev-versionnumber' for branches
-          if: github.ref != 'refs/heads/main' && contains(github.server_url, 'github.com')
+          if: github.ref != 'refs/heads/main'
           run: |
             VERSION=$(cat ./${{ matrix.folder }}/version.txt)
             jq --arg version "dev-$VERSION" '.version = $version' ./${{ matrix.folder }}/config.json > tmp.json && mv tmp.json ./${{ matrix.folder }}/config.json
         - name: Ensure version is correct for main
-          if: github.ref == 'refs/heads/main' && contains(github.server_url, 'github.com')
+          if: github.ref == 'refs/heads/main'
           run: |
             VERSION=$(cat ./${{ matrix.folder }}/version.txt)
             jq --arg version "$VERSION" '.version = $version' ./${{ matrix.folder }}/config.json > tmp.json && mv tmp.json ./${{ matrix.folder }}/config.json
         - name: Update build.json
-          if: contains(github.server_url, 'github.com')
           run: |
             VERSION=$(cat ./${{ matrix.folder }}/version.txt)
             jq --arg version "$VERSION" '.args.BUILD_VERSION = $version' ./${{ matrix.folder }}/build.json > tmp.json && mv tmp.json ./${{ matrix.folder }}/build.json
@@ -199,10 +205,12 @@
 
     build_main_or_pr:
       name: Build ${{ matrix.architecture }} (Main or PR)
-      if: ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request')) && contains(github.server_url, 'github.com')
+      if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request')
       needs:
         information
-      runs-on: ubuntu-latest
+      runs-on: docker
+      env:
+        DOCKER_HOST: tcp://dind:2375
       strategy:
         fail-fast: false
         matrix:
@@ -216,6 +224,15 @@
       steps:
         - name: Check out code from GitHub
           uses: actions/checkout@v3
+        - name: Setup Docker
+          run: |
+            set -euo pipefail
+            if ! command -v docker >/dev/null 2>&1; then
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update -qq
+              apt-get install -y -qq docker.io
+            fi
+            docker info
         - name: Set version for branches
           id: set_version
           run: |
@@ -243,12 +260,31 @@
           with:
             username: ${{ secrets.DOCKER_USERNAME }}
             password: ${{ secrets.DOCKER_PASSWORD }}
-        - name: Log in to GitHub Container Registry
+        - name: Log in to GHCR (PAT)
+          id: ghcr_pat
           uses: docker/login-action@v2
+          continue-on-error: true
+          with:
+            registry: ghcr.io
+            username: ${{ secrets.GHCR_USERNAME }}
+            password: ${{ secrets.GHCR_TOKEN }}
+        - name: Log in to GHCR (GITHUB_TOKEN)
+          id: ghcr_token
+          if: steps.ghcr_pat.outcome != 'success'
+          uses: docker/login-action@v2
+          continue-on-error: true
           with:
             registry: ghcr.io
             username: ${{ github.repository_owner }}
             password: ${{ secrets.GITHUB_TOKEN }}
+        - name: Log in to Forgejo Container Registry
+          id: forgejo_login
+          uses: docker/login-action@v2
+          continue-on-error: true
+          with:
+            registry: git.atlastechsolutions.co.uk
+            username: ${{ secrets.FORGEJO_USERNAME }}
+            password: ${{ secrets.FORGEJO_TOKEN }}
         - name: Set up Docker Buildx
           uses: docker/setup-buildx-action@v3.3.0
         - name: Compose build flags
@@ -311,6 +347,7 @@
             tags: |
                 ${{ secrets.DOCKER_USERNAME }}/${{ steps.convert.outputs.slug_lower }}:${{ steps.set_version.outputs.version }}-${{ matrix.architecture }}
                 ghcr.io/${{ steps.convert.outputs.repository_owner_lower }}/${{ steps.convert.outputs.slug_lower }}:${{ steps.set_version.outputs.version }}-${{ matrix.architecture }}
+                git.atlastechsolutions.co.uk/${{ steps.convert.outputs.repository_owner_lower }}/${{ steps.convert.outputs.slug_lower }}:${{ steps.set_version.outputs.version }}-${{ matrix.architecture }}
         - name: Swap build cache
           run: |
             if [ -d /tmp/.docker-cache-new ]; then
@@ -322,14 +359,16 @@
 
     build_other_branches:
       name: Build ${{ matrix.architecture }} (Other Branches)
-      if: github.event_name == 'push' && github.ref != 'refs/heads/main' && contains(github.server_url, 'github.com')
+      if: github.event_name == 'push' && github.ref != 'refs/heads/main'
       needs:
         - information
         - lint-hadolint
         - lint-json
         - lint-shellcheck
         - lint-yamllint
-      runs-on: ubuntu-latest
+      runs-on: docker
+      env:
+        DOCKER_HOST: tcp://dind:2375
       strategy:
         fail-fast: false
         matrix:
@@ -343,6 +382,15 @@
       steps:
         - name: Check out code from GitHub
           uses: actions/checkout@v3
+        - name: Setup Docker
+          run: |
+            set -euo pipefail
+            if ! command -v docker >/dev/null 2>&1; then
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update -qq
+              apt-get install -y -qq docker.io
+            fi
+            docker info
         - name: Set version for branches
           id: set_version
           run: |
@@ -370,12 +418,31 @@
           with:
             username: ${{ secrets.DOCKER_USERNAME }}
             password: ${{ secrets.DOCKER_PASSWORD }}
-        - name: Log in to GitHub Container Registry
+        - name: Log in to GHCR (PAT)
+          id: ghcr_pat
           uses: docker/login-action@v2
+          continue-on-error: true
+          with:
+            registry: ghcr.io
+            username: ${{ secrets.GHCR_USERNAME }}
+            password: ${{ secrets.GHCR_TOKEN }}
+        - name: Log in to GHCR (GITHUB_TOKEN)
+          id: ghcr_token
+          if: steps.ghcr_pat.outcome != 'success'
+          uses: docker/login-action@v2
+          continue-on-error: true
           with:
             registry: ghcr.io
             username: ${{ github.repository_owner }}
             password: ${{ secrets.GITHUB_TOKEN }}
+        - name: Log in to Forgejo Container Registry
+          id: forgejo_login
+          uses: docker/login-action@v2
+          continue-on-error: true
+          with:
+            registry: git.atlastechsolutions.co.uk
+            username: ${{ secrets.FORGEJO_USERNAME }}
+            password: ${{ secrets.FORGEJO_TOKEN }}
         - name: Set up Docker Buildx
           uses: docker/setup-buildx-action@v3.3.0
         - name: Compose build flags
@@ -438,6 +505,7 @@
             tags: |
                 ${{ secrets.DOCKER_USERNAME }}/${{ steps.convert.outputs.slug_lower }}:${{ steps.set_version.outputs.version }}-${{ matrix.architecture }}
                 ghcr.io/${{ steps.convert.outputs.repository_owner_lower }}/${{ steps.convert.outputs.slug_lower }}:${{ steps.set_version.outputs.version }}-${{ matrix.architecture }}
+                git.atlastechsolutions.co.uk/${{ steps.convert.outputs.repository_owner_lower }}/${{ steps.convert.outputs.slug_lower }}:${{ steps.set_version.outputs.version }}-${{ matrix.architecture }}
         - name: Swap build cache
           run: |
             if [ -d /tmp/.docker-cache-new ]; then
@@ -464,12 +532,31 @@
           with:
             username: ${{ secrets.DOCKER_USERNAME }}
             password: ${{ secrets.DOCKER_PASSWORD }}
-        - name: Log in to GitHub Container Registry
+        - name: Log in to GHCR (PAT)
+          id: ghcr_pat
           uses: docker/login-action@v2
+          continue-on-error: true
+          with:
+            registry: ghcr.io
+            username: ${{ secrets.GHCR_USERNAME }}
+            password: ${{ secrets.GHCR_TOKEN }}
+        - name: Log in to GHCR (GITHUB_TOKEN)
+          id: ghcr_token
+          if: steps.ghcr_pat.outcome != 'success'
+          uses: docker/login-action@v2
+          continue-on-error: true
           with:
             registry: ghcr.io
             username: ${{ github.repository_owner }}
             password: ${{ secrets.GITHUB_TOKEN }}
+        - name: Log in to Forgejo Container Registry
+          id: forgejo_login
+          uses: docker/login-action@v2
+          continue-on-error: true
+          with:
+            registry: git.atlastechsolutions.co.uk
+            username: ${{ secrets.FORGEJO_USERNAME }}
+            password: ${{ secrets.FORGEJO_TOKEN }}
         - name: Create and Push Docker Manifest latest
           run: |
             IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/${{ needs.build_main_or_pr.outputs.slug_lower }}"
@@ -538,12 +625,31 @@
             username: ${{ secrets.DOCKER_USERNAME }}
             password: ${{ secrets.DOCKER_PASSWORD }}
 
-        - name: Log in to GitHub Container Registry
+        - name: Log in to GHCR (PAT)
+          id: ghcr_pat
           uses: docker/login-action@v2
+          continue-on-error: true
+          with:
+            registry: ghcr.io
+            username: ${{ secrets.GHCR_USERNAME }}
+            password: ${{ secrets.GHCR_TOKEN }}
+        - name: Log in to GHCR (GITHUB_TOKEN)
+          id: ghcr_token
+          if: steps.ghcr_pat.outcome != 'success'
+          uses: docker/login-action@v2
+          continue-on-error: true
           with:
             registry: ghcr.io
             username: ${{ github.repository_owner }}
             password: ${{ secrets.GITHUB_TOKEN }}
+        - name: Log in to Forgejo Container Registry
+          id: forgejo_login
+          uses: docker/login-action@v2
+          continue-on-error: true
+          with:
+            registry: git.atlastechsolutions.co.uk
+            username: ${{ secrets.FORGEJO_USERNAME }}
+            password: ${{ secrets.FORGEJO_TOKEN }}
 
         - name: Create and Push Docker Manifest dev to DockerHub
           run: |
@@ -691,19 +797,26 @@
       if: ${{ !contains(github.server_url, 'github.com') }}
       needs: discover
       runs-on: ubuntu-latest
-      strategy:
-        matrix:
-          folder: ${{ fromJson(needs.discover.outputs.addon_dirs) }}
       steps:
         - uses: actions/checkout@v4
-        - name: Validate ${{ matrix.folder }}
+        - name: Validate all add-ons
           run: |
-            set -e
-            test -f "${{ matrix.folder }}/config.json"
-            test -f "${{ matrix.folder }}/build.json"
-            test -f "${{ matrix.folder }}/version.txt"
-            python3 -m json.tool "${{ matrix.folder }}/config.json" > /dev/null
-            python3 -m json.tool "${{ matrix.folder }}/build.json" > /dev/null
+            set -euo pipefail
+            shopt -s nullglob
+            dirs=(addons/*/)
+            if [ ${#dirs[@]} -eq 0 ]; then
+              echo "No add-on directories found under addons/"
+              exit 1
+            fi
+            for dir in "${dirs[@]}"; do
+              dir="${dir%/}"
+              echo "Validating ${dir}"
+              test -f "${dir}/config.json"
+              test -f "${dir}/build.json"
+              test -f "${dir}/version.txt"
+              python3 -m json.tool "${dir}/config.json" > /dev/null
+              python3 -m json.tool "${dir}/build.json" > /dev/null
+            done
 
     dco:
       name: DCO sign-off
@@ -741,6 +854,14 @@
             if [[ "${{ contains(github.server_url, 'github.com') }}" != "true" ]]; then
               if [[ "${{ needs.forgejo_validate.result }}" != "success" ]]; then
                 echo "Forgejo add-on validation failed."
+                exit 1
+              fi
+              if [[ "${{ needs.information.result }}" != "success" && "${{ needs.information.result }}" != "skipped" ]]; then
+                echo "Information job failed."
+                exit 1
+              fi
+              if [[ "${{ github.ref }}" == "refs/heads/main" && "${{ needs.build_main_or_pr.result }}" != "success" && "${{ needs.build_main_or_pr.result }}" != "skipped" ]]; then
+                echo "Build (main or PR) job failed."
                 exit 1
               fi
               if [[ "${{ github.event_name }}" == "pull_request" && "${{ needs.dco.result }}" != "success" ]]; then
