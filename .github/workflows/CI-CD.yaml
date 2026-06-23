@@ -32,8 +32,8 @@
 
     information:
       name: Gather add-on information
+      if: contains(github.server_url, 'github.com')
       needs: discover
-      if: ${{ needs.discover.outputs.addon_dirs != '' && needs.discover.outputs.addon_dirs != '[]' }}
       runs-on: ubuntu-latest
       strategy:
         matrix:
@@ -203,7 +203,7 @@
       name: Build ${{ matrix.architecture }} (Main or PR)
       if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request')
       needs:
-        information
+        - discover
       runs-on: docker
       env:
         DOCKER_HOST: tcp://dind:2375
@@ -211,7 +211,7 @@
         fail-fast: false
         matrix:
           architecture: ["aarch64", "amd64", "armhf", "armv7", "i386"]
-          folder: ${{ fromJson(needs.information.outputs.addon_dirs || '["addons/example"]') }}
+          folder: ${{ fromJson(needs.discover.outputs.addon_dirs) }}
       outputs:
         version:  ${{ steps.set_version.outputs.version }}
         slug_lower: ${{ steps.convert.outputs.slug_lower }}
@@ -229,14 +229,27 @@
               apt-get install -y -qq docker.io
             fi
             docker info
-        - name: Set version for branches
-          id: set_version
+        - name: Load add-on metadata
+          id: addon
           run: |
-            VERSION=${{ needs.information.outputs.version }}
+            FOLDER="${{ matrix.folder }}"
+            VERSION=$(cat "./${FOLDER}/version.txt")
             if [ "${{ github.ref }}" != "refs/heads/main" ]; then
               VERSION="dev-${VERSION}"
             fi
-            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            SLUG=$(python3 -c "import json; print(json.load(open('${FOLDER}/config.json')).get('slug',''))")
+            NAME=$(python3 -c "import json; print(json.load(open('${FOLDER}/config.json')).get('name',''))")
+            DESC=$(python3 -c "import json; print(json.load(open('${FOLDER}/config.json')).get('description',''))")
+            {
+              echo "version=${VERSION}"
+              echo "slug=${SLUG}"
+              echo "name=${NAME}"
+              echo "description=${DESC}"
+              echo "build=${FOLDER}/build.json"
+            } >> "$GITHUB_OUTPUT"
+        - name: Set version for branches
+          id: set_version
+          run: echo "version=${{ steps.addon.outputs.version }}" >> "$GITHUB_OUTPUT"
 
         - name: Debug - Print matrix folder path
           run: |
@@ -287,10 +300,10 @@
           id: flags
           run: |
             echo "date=$(date '+%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
-            from=$(yq eval '.build_from["${{ matrix.architecture }}"]' "${{ needs.information.outputs.build }}")
+            from=$(yq eval '.build_from["${{ matrix.architecture }}"]' "${{ steps.addon.outputs.build }}")
             from=$(echo $from | tr -d '"')
             echo "from=${from}" >> $GITHUB_OUTPUT
-            echo "BUILD_VERSION=${{ needs.information.outputs.version }}" >> $GITHUB_OUTPUT
+            echo "BUILD_VERSION=${{ steps.addon.outputs.version }}" >> $GITHUB_OUTPUT
             if [[ "${{ matrix.architecture }}" == "amd64" ]]; then
               echo "platform=linux/amd64" >> $GITHUB_OUTPUT
             elif [[ "${{ matrix.architecture }}" == "i386" ]]; then
@@ -316,7 +329,7 @@
         - name: Convert to Lowercase
           id: convert
           run: |
-            SLUG_LOWER=$(echo ${{ needs.information.outputs.slug }} | tr '[:upper:]' '[:lower:]')
+            SLUG_LOWER=$(echo ${{ steps.addon.outputs.slug }} | tr '[:upper:]' '[:lower:]')
             REPOSITORY_LOWER=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')
             REPOSITORY_OWNER_LOWER=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
             echo "slug_lower=$SLUG_LOWER" >> $GITHUB_OUTPUT
@@ -334,12 +347,12 @@
             build-args: |
               BUILD_ARCH=${{ matrix.architecture }}
               BUILD_DATE=${{ steps.flags.outputs.date }}
-              BUILD_DESCRIPTION=${{ needs.information.outputs.description }}
+              BUILD_DESCRIPTION=${{ steps.addon.outputs.description }}
               BUILD_FROM=${{ steps.flags.outputs.from }}
-              BUILD_NAME=${{ needs.information.outputs.name }}
+              BUILD_NAME=${{ steps.addon.outputs.name }}
               BUILD_REF=${{ github.sha }}
               BUILD_REPOSITORY=${{ steps.convert.outputs.repository_lower }}
-              BUILD_VERSION=${{ needs.information.outputs.version }}
+              BUILD_VERSION=${{ steps.addon.outputs.version }}
             tags: |
                 ${{ secrets.DOCKER_USERNAME }}/${{ steps.convert.outputs.slug_lower }}:${{ steps.set_version.outputs.version }}-${{ matrix.architecture }}
                 ghcr.io/${{ steps.convert.outputs.repository_owner_lower }}/${{ steps.convert.outputs.slug_lower }}:${{ steps.set_version.outputs.version }}-${{ matrix.architecture }}
@@ -854,10 +867,6 @@
             if [[ "${{ contains(github.server_url, 'github.com') }}" != "true" ]]; then
               if [[ "${{ needs.forgejo_validate.result }}" != "success" ]]; then
                 echo "Forgejo add-on validation failed."
-                exit 1
-              fi
-              if [[ "${{ needs.information.result }}" != "success" && "${{ needs.information.result }}" != "skipped" ]]; then
-                echo "Information job failed."
                 exit 1
               fi
               if [[ "${{ github.ref }}" == "refs/heads/main" && "${{ needs.build_main_or_pr.result }}" != "success" && "${{ needs.build_main_or_pr.result }}" != "skipped" ]]; then
