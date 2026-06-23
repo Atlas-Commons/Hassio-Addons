@@ -90,12 +90,7 @@ jobs:
             echo "Matrix folder path: ${{ matrix.folder }}"
         - name: Set up build cache
           id: cache
-          uses: actions/cache@v4
-          with:
-            path: /tmp/.docker-cache
-            key: docker-${{ matrix.architecture }}-${{ github.sha }}
-            restore-keys: |
-              docker-${{ matrix.architecture }}
+          run: mkdir -p /tmp/.docker-cache
         - name: Set up QEMU
           uses: docker/setup-qemu-action@v3.0.0
         - name: Log in to DockerHub
@@ -158,8 +153,8 @@ jobs:
         - name: Download base image
           if: steps.flags.outputs.from != 'null'
           run: |
-            echo "Pulling base image: ${{ steps.flags.outputs.from }}"
-            docker pull ${{ steps.flags.outputs.from }}
+            echo "Pulling base image: ${{ steps.flags.outputs.from }} (${{ steps.flags.outputs.platform }})"
+            docker pull --platform "${{ steps.flags.outputs.platform }}" "${{ steps.flags.outputs.from }}"
         - name: Convert to Lowercase
           id: convert
           run: |

@@ -11,7 +11,8 @@
 set -euo pipefail
 
 FORGEJO_HOST="${FORGEJO_HOST:-git.atlastechsolutions.co.uk}"
-API="https://${FORGEJO_HOST}/api/v1"
+API_V1="https://${FORGEJO_HOST}/api/v1"
+PACKAGES_API="https://${FORGEJO_HOST}/api/packages"
 
 require_auth() {
   if [[ -z "${FORGEJO_USERNAME:-}" || -z "${FORGEJO_TOKEN:-}" ]]; then
@@ -32,7 +33,7 @@ cmd_link() {
   body=$(mktemp)
   code=$(curl -sS -o "$body" -w '%{http_code}' -X POST \
     -H "Authorization: token ${FORGEJO_TOKEN}" \
-    "${API}/packages/${owner}/${type}/${enc}/-/link/${repo}" || echo "000")
+    "${API_V1}/packages/${owner}/${type}/${enc}/-/link/${repo}" || echo "000")
   if [[ "$code" == "200" || "$code" == "204" ]]; then
     echo "Linked ${type}/${name} -> ${owner}/${repo}"
     return 0
@@ -56,7 +57,7 @@ cmd_pypi() {
   fi
   echo "Publishing PyPI package ${pkg_name} to ${owner}..."
   twine upload \
-    --repository-url "${API}/packages/${owner}/pypi" \
+    --repository-url "${PACKAGES_API}/${owner}/pypi" \
     -u "${FORGEJO_USERNAME}" -p "${FORGEJO_TOKEN}" \
     --skip-existing \
     "${dist_dir}"/*
@@ -86,7 +87,7 @@ cmd_generic() {
     curl -sS -f -X PUT \
       --user "${FORGEJO_USERNAME}:${FORGEJO_TOKEN}" \
       --upload-file "$file" \
-      "${API}/packages/${owner}/generic/${enc_pkg}/${enc_ver}/${enc_file}"
+      "${PACKAGES_API}/${owner}/generic/${enc_pkg}/${enc_ver}/${enc_file}"
   done
   cmd_link "$owner" "generic" "$package_name" "$repo_name"
 }
