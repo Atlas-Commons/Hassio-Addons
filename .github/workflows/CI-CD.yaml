@@ -59,21 +59,18 @@
         - name: Extract add-on information
           id: information
           run: |
-            FOLDER="./${{ matrix.folder }}"
-            python3 <<'PY'
+            python3 -c "
             import json, os
-            folder = os.environ["FOLDER"]
-            with open(f"{folder}/config.json") as f:
-                cfg = json.load(f)
-            build = f"{folder}/build.json"
-            with open(os.environ["GITHUB_OUTPUT"], "a") as out:
-                out.write(f"architectures={json.dumps(cfg.get('arch', ['amd64']))}\n")
-                out.write(f"build={build}\n")
-                out.write(f"description={cfg.get('description', '')}\n")
-                out.write(f"name={cfg.get('name', '')}\n")
-                out.write(f"slug={cfg.get('slug', '')}\n")
-                out.write(f"target={cfg.get('image', '')}\n")
-            PY
+            folder = './' + os.environ['FOLDER']
+            cfg = json.load(open(folder + '/config.json'))
+            out = open(os.environ['GITHUB_OUTPUT'], 'a')
+            out.write('architectures=' + json.dumps(cfg.get('arch', [])) + '\n')
+            out.write('build=' + folder + '/build.json\n')
+            out.write('description=' + cfg.get('description', '') + '\n')
+            out.write('name=' + cfg.get('name', '') + '\n')
+            out.write('slug=' + cfg.get('slug', '') + '\n')
+            out.write('target=' + cfg.get('image', '') + '\n')
+            "
           env:
             FOLDER: ${{ matrix.folder }}
         - name: Read version from version.txt
