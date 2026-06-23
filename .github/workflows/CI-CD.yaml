@@ -686,6 +686,25 @@
               git push "https://${{ github.actor }}:${GITHUB_TOKEN}@${HOST}/${{ github.repository }}.git" "HEAD:${BRANCH_NAME}"
             fi
 
+    forgejo_validate:
+      name: Validate add-ons (Forgejo)
+      if: ${{ !contains(github.server_url, 'github.com') }}
+      needs: discover
+      runs-on: ubuntu-latest
+      strategy:
+        matrix:
+          folder: ${{ fromJson(needs.discover.outputs.addon_dirs) }}
+      steps:
+        - uses: actions/checkout@v4
+        - name: Validate ${{ matrix.folder }}
+          run: |
+            set -e
+            test -f "${{ matrix.folder }}/config.json"
+            test -f "${{ matrix.folder }}/build.json"
+            test -f "${{ matrix.folder }}/version.txt"
+            python3 -m json.tool "${{ matrix.folder }}/config.json" > /dev/null
+            python3 -m json.tool "${{ matrix.folder }}/build.json" > /dev/null
+
     dco:
       name: DCO sign-off
       runs-on: ubuntu-latest
@@ -700,7 +719,7 @@
     required:
       name: Required checks
       runs-on: ubuntu-latest
-      needs: [discover, information, build_main_or_pr, dco]
+      needs: [discover, information, build_main_or_pr, dco, forgejo_validate]
       if: >-
         always() &&
         (
@@ -712,11 +731,24 @@
           run: |
             echo "discover:         ${{ needs.discover.result }}"
             echo "information:    ${{ needs.information.result }}"
+            echo "forgejo_validate: ${{ needs.forgejo_validate.result }}"
             echo "build_main_or_pr: ${{ needs.build_main_or_pr.result }}"
             echo "dco:            ${{ needs.dco.result }}"
             if [[ "${{ needs.discover.result }}" != "success" ]]; then
               echo "Discover job failed or was skipped."
               exit 1
+            fi
+            if [[ "${{ contains(github.server_url, 'github.com') }}" != "true" ]]; then
+              if [[ "${{ needs.forgejo_validate.result }}" != "success" ]]; then
+                echo "Forgejo add-on validation failed."
+                exit 1
+              fi
+              if [[ "${{ github.event_name }}" == "pull_request" && "${{ needs.dco.result }}" != "success" ]]; then
+                echo "DCO sign-off check failed."
+                exit 1
+              fi
+              echo "Forgejo required checks passed."
+              exit 0
             fi
             if [[ "${{ needs.information.result }}" != "success" ]]; then
               echo "Information job failed or was skipped."
