@@ -61,13 +61,18 @@
           id: information
           run: |
             folder="./${{ matrix.folder }}"
-            cfg="${folder}/config.json"
-            echo "architectures=$(python3 -c "import json; print(','.join(json.load(open('${cfg}')).get('arch',[])))")" >> "$GITHUB_OUTPUT"
-            echo "build=${folder}/build.json" >> "$GITHUB_OUTPUT"
-            echo "description=$(python3 -c "import json; print(json.load(open('${cfg}')).get('description',''))")" >> "$GITHUB_OUTPUT"
-            echo "name=$(python3 -c "import json; print(json.load(open('${cfg}')).get('name',''))")" >> "$GITHUB_OUTPUT"
-            echo "slug=$(python3 -c "import json; print(json.load(open('${cfg}')).get('slug',''))")" >> "$GITHUB_OUTPUT"
-            echo "target=$(python3 -c "import json; print(json.load(open('${cfg}')).get('image',''))")" >> "$GITHUB_OUTPUT"
+            export CONFIG_PATH="${folder}/config.json"
+            python3 <<'PY'
+            import json, os
+            cfg = json.load(open(os.environ["CONFIG_PATH"]))
+            out = open(os.environ["GITHUB_OUTPUT"], "a")
+            out.write("architectures=" + ",".join(cfg.get("arch", [])) + "\n")
+            out.write("build=" + os.path.dirname(os.environ["CONFIG_PATH"]) + "/build.json\n")
+            out.write("description=" + cfg.get("description", "") + "\n")
+            out.write("name=" + cfg.get("name", "") + "\n")
+            out.write("slug=" + cfg.get("slug", "") + "\n")
+            out.write("target=" + cfg.get("image", "") + "\n")
+            PY
         - name: Read version from version.txt
           id: read_version
           run: |
