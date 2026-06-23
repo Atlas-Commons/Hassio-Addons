@@ -25,11 +25,7 @@
           run: |
             ADDON_DIRS=$(find addons -mindepth 1 -maxdepth 1 -type d | python3 -c "import json,sys; print(json.dumps([p.strip() for p in sys.stdin.read().splitlines() if p.strip()]))")
             echo "Found add-on directories: $ADDON_DIRS"
-            {
-              echo 'addon_dirs<<EOF'
-              echo "$ADDON_DIRS"
-              echo 'EOF'
-            } >> "$GITHUB_OUTPUT"
+            echo "addon_dirs=${ADDON_DIRS}" >> "$GITHUB_OUTPUT"
         - name: Debug - List directories
           run: |
             echo "Found add-on directories: ${{ steps.folders.outputs.addon_dirs }}"
@@ -37,6 +33,7 @@
     information:
       name: Gather add-on information
       needs: discover
+      if: ${{ needs.discover.outputs.addon_dirs != '' && needs.discover.outputs.addon_dirs != '[]' }}
       runs-on: ubuntu-latest
       strategy:
         matrix:
@@ -57,10 +54,9 @@
             fetch-depth: 0  # Ensure all tags are fetched
         - name: Install jq
           run: |
-            if command -v sudo >/dev/null 2>&1; then SUDO=sudo; else SUDO=""; fi
             export DEBIAN_FRONTEND=noninteractive
-            $SUDO apt-get update -qq
-            $SUDO apt-get install -y -qq jq
+            apt-get update -qq
+            apt-get install -y -qq jq
         - name: Debug - Print matrix folder path
           run: |
             echo "Matrix folder path: ${{ matrix.folder }}"
@@ -713,7 +709,9 @@
           uses: actions/checkout@v2
 
         - name: Set up jq
-          run: sudo apt-get install jq
+          run: |
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -qq && apt-get install -y -qq jq
 
         - name: Update config.json with new image URL
           run: |
@@ -757,7 +755,9 @@
           uses: actions/checkout@v2
 
         - name: Set up jq
-          run: sudo apt-get install jq
+          run: |
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -qq && apt-get install -y -qq jq
 
         - name: Update config.json with new image URL
           run: |
