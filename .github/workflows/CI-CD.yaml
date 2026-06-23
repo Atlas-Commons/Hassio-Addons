@@ -52,6 +52,7 @@
           with:
             fetch-depth: 0  # Ensure all tags are fetched
         - name: Install jq
+          if: contains(github.server_url, 'github.com')
           run: sudo apt-get update -qq && sudo apt-get install -y -qq jq
         - name: Debug - Print matrix folder path
           run: |
