@@ -52,7 +52,7 @@
           with:
             fetch-depth: 0  # Ensure all tags are fetched
         - name: Install jq
-          run: command -v jq >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq jq)
+          run: sudo apt-get update -qq && sudo apt-get install -y -qq jq
         - name: Debug - Print matrix folder path
           run: |
             echo "Matrix folder path: ${{ matrix.folder }}"
@@ -64,9 +64,7 @@
             folder = './' + os.environ['FOLDER']
             cfg = json.load(open(folder + '/config.json'))
             out = open(os.environ['GITHUB_OUTPUT'], 'a')
-            out.write('architectures<<EOF\n')
-            out.write(json.dumps(cfg.get('arch', [])) + '\n')
-            out.write('EOF\n')
+            out.write('architectures=' + ','.join(cfg.get('arch', [])) + '\n')
             out.write('build=' + folder + '/build.json\n')
             out.write('description=' + cfg.get('description', '') + '\n')
             out.write('name=' + cfg.get('name', '') + '\n')
@@ -81,16 +79,17 @@
             VERSION=$(cat ./${{ matrix.folder }}/version.txt)
             echo "version=$VERSION" >> $GITHUB_OUTPUT
         - name: Ensure version is 'dev-versionnumber' for branches
-          if: github.ref != 'refs/heads/main'
+          if: github.ref != 'refs/heads/main' && contains(github.server_url, 'github.com')
           run: |
             VERSION=$(cat ./${{ matrix.folder }}/version.txt)
             jq --arg version "dev-$VERSION" '.version = $version' ./${{ matrix.folder }}/config.json > tmp.json && mv tmp.json ./${{ matrix.folder }}/config.json
         - name: Ensure version is correct for main
-          if: github.ref == 'refs/heads/main'
+          if: github.ref == 'refs/heads/main' && contains(github.server_url, 'github.com')
           run: |
             VERSION=$(cat ./${{ matrix.folder }}/version.txt)
             jq --arg version "$VERSION" '.version = $version' ./${{ matrix.folder }}/config.json > tmp.json && mv tmp.json ./${{ matrix.folder }}/config.json
         - name: Update build.json
+          if: contains(github.server_url, 'github.com')
           run: |
             VERSION=$(cat ./${{ matrix.folder }}/version.txt)
             jq --arg version "$VERSION" '.args.BUILD_VERSION = $version' ./${{ matrix.folder }}/build.json > tmp.json && mv tmp.json ./${{ matrix.folder }}/build.json
