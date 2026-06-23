@@ -23,9 +23,7 @@
         - name: Find add-on directories
           id: folders
           run: |
-            sudo apt-get update -qq
-            sudo apt-get install -y -qq jq
-            ADDON_DIRS=$(find addons -mindepth 1 -maxdepth 1 -type d | jq -R -s -c 'split("\n") | map(select(length > 0))')
+            ADDON_DIRS=$(find addons -mindepth 1 -maxdepth 1 -type d | python3 -c "import json,sys; print(json.dumps([p.strip() for p in sys.stdin.read().splitlines() if p.strip()]))")
             echo "Found add-on directories: $ADDON_DIRS"
             echo "addon_dirs=$ADDON_DIRS" >> $GITHUB_OUTPUT
         - name: Debug - List directories
@@ -53,12 +51,14 @@
           uses: actions/checkout@v4
           with:
             fetch-depth: 0  # Ensure all tags are fetched
+        - name: Install jq
+          run: command -v jq >/dev/null || (apt-get update -qq && apt-get install -y -qq jq)
         - name: Debug - Print matrix folder path
           run: |
             echo "Matrix folder path: ${{ matrix.folder }}"
         - name: Run add-on information action
           id: information
-          uses: frenck/action-addon-information@v1
+          uses: https://github.com/frenck/action-addon-information@v1
           with:
             path: "./${{ matrix.folder }}"
         - name: Read version from version.txt
@@ -81,6 +81,7 @@
             VERSION=$(cat ./${{ matrix.folder }}/version.txt)
             jq --arg version "$VERSION" '.args.BUILD_VERSION = $version' ./${{ matrix.folder }}/build.json > tmp.json && mv tmp.json ./${{ matrix.folder }}/build.json
         - name: Commit and push changes
+          if: contains(github.server_url, 'github.com')
           env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           run: |
