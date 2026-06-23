@@ -19,7 +19,9 @@
         addon_dirs: ${{ steps.folders.outputs.addon_dirs }}
       steps:
         - name: Check out code from GitHub
-          uses: actions/checkout@v4
+          uses: https://github.com/actions/checkout@v4
+          with:
+            token: ${{ secrets.FORGEJO_TOKEN }}
         - name: Find add-on directories
           id: folders
           run: |
@@ -49,7 +51,7 @@
         version: ${{ steps.read_version.outputs.version }}
       steps:
         - name: Check out code from GitHub
-          uses: actions/checkout@v4
+          uses: https://github.com/actions/checkout@v4
           with:
             fetch-depth: 0  # Ensure all tags are fetched
         - name: Install jq
@@ -132,7 +134,9 @@
           folder: ${{ fromJson(needs.information.outputs.addon_dirs) }}
       steps:
         - name: Check out code from GitHub
-          uses: actions/checkout@v4
+          uses: https://github.com/actions/checkout@v4
+          with:
+            token: ${{ secrets.FORGEJO_TOKEN }}
         - name: Debug - Print matrix folder path
           run: |
             echo "Matrix folder path: ${{ matrix.folder }}"
@@ -152,7 +156,9 @@
           folder: ${{ fromJson(needs.information.outputs.addon_dirs) }}
       steps:
         - name: Check out code from GitHub
-          uses: actions/checkout@v4
+          uses: https://github.com/actions/checkout@v4
+          with:
+            token: ${{ secrets.FORGEJO_TOKEN }}
         - name: Debug - Print matrix folder path
           run: |
             echo "Matrix folder path: ${{ matrix.folder }}"
@@ -171,7 +177,9 @@
           folder: ${{ fromJson(needs.information.outputs.addon_dirs) }}
       steps:
         - name: Check out code from GitHub
-          uses: actions/checkout@v4
+          uses: https://github.com/actions/checkout@v4
+          with:
+            token: ${{ secrets.FORGEJO_TOKEN }}
         - name: Debug - Print matrix folder path
           run: |
             echo "Matrix folder path: ${{ matrix.folder }}"
@@ -190,7 +198,9 @@
           folder: ${{ fromJson(needs.information.outputs.addon_dirs) }}
       steps:
         - name: Check out code from GitHub
-          uses: actions/checkout@v4
+          uses: https://github.com/actions/checkout@v4
+          with:
+            token: ${{ secrets.FORGEJO_TOKEN }}
         - name: Debug - Print matrix folder path
           run: |
             echo "Matrix folder path: ${{ matrix.folder }}"
@@ -219,7 +229,9 @@
         folder: ${{ matrix.folder }}
       steps:
         - name: Check out code from GitHub
-          uses: actions/checkout@v3
+          uses: https://github.com/actions/checkout@v3
+          with:
+            token: ${{ secrets.FORGEJO_TOKEN }}
         - name: Setup Docker
           run: |
             set -euo pipefail
@@ -279,7 +291,7 @@
             password: ${{ secrets.GHCR_TOKEN }}
         - name: Log in to GHCR (GITHUB_TOKEN)
           id: ghcr_token
-          if: steps.ghcr_pat.outcome != 'success'
+          if: contains(github.server_url, 'github.com') && steps.ghcr_pat.outcome != 'success'
           uses: docker/login-action@v2
           continue-on-error: true
           with:
@@ -390,7 +402,9 @@
         folder: ${{ matrix.folder }}
       steps:
         - name: Check out code from GitHub
-          uses: actions/checkout@v3
+          uses: https://github.com/actions/checkout@v3
+          with:
+            token: ${{ secrets.FORGEJO_TOKEN }}
         - name: Setup Docker
           run: |
             set -euo pipefail
@@ -437,7 +451,7 @@
             password: ${{ secrets.GHCR_TOKEN }}
         - name: Log in to GHCR (GITHUB_TOKEN)
           id: ghcr_token
-          if: steps.ghcr_pat.outcome != 'success'
+          if: contains(github.server_url, 'github.com') && steps.ghcr_pat.outcome != 'success'
           uses: docker/login-action@v2
           continue-on-error: true
           with:
@@ -531,7 +545,9 @@
       needs: build_main_or_pr
       steps:
         - name: Check out code from GitHub
-          uses: actions/checkout@v4
+          uses: https://github.com/actions/checkout@v4
+          with:
+            token: ${{ secrets.FORGEJO_TOKEN }}
 
         - name: Set up Docker Buildx
           uses: docker/setup-buildx-action@v2
@@ -551,7 +567,7 @@
             password: ${{ secrets.GHCR_TOKEN }}
         - name: Log in to GHCR (GITHUB_TOKEN)
           id: ghcr_token
-          if: steps.ghcr_pat.outcome != 'success'
+          if: contains(github.server_url, 'github.com') && steps.ghcr_pat.outcome != 'success'
           uses: docker/login-action@v2
           continue-on-error: true
           with:
@@ -623,7 +639,9 @@
       needs: build_other_branches
       steps:
         - name: Check out code from GitHub
-          uses: actions/checkout@v4
+          uses: https://github.com/actions/checkout@v4
+          with:
+            token: ${{ secrets.FORGEJO_TOKEN }}
 
         - name: Set up Docker Buildx
           uses: docker/setup-buildx-action@v2
@@ -644,7 +662,7 @@
             password: ${{ secrets.GHCR_TOKEN }}
         - name: Log in to GHCR (GITHUB_TOKEN)
           id: ghcr_token
-          if: steps.ghcr_pat.outcome != 'success'
+          if: contains(github.server_url, 'github.com') && steps.ghcr_pat.outcome != 'success'
           uses: docker/login-action@v2
           continue-on-error: true
           with:
@@ -719,7 +737,7 @@
       needs: build_main_or_pr
       steps:
         - name: Checkout repository
-          uses: actions/checkout@v2
+          uses: https://github.com/actions/checkout@v2
 
         - name: Set up jq
           run: |
@@ -765,7 +783,7 @@
       needs: build_other_branches
       steps:
         - name: Checkout repository
-          uses: actions/checkout@v2
+          uses: https://github.com/actions/checkout@v2
 
         - name: Set up jq
           run: |
@@ -811,7 +829,9 @@
       needs: discover
       runs-on: ubuntu-latest
       steps:
-        - uses: actions/checkout@v4
+        - uses: https://github.com/actions/checkout@v4
+          with:
+            token: ${{ secrets.FORGEJO_TOKEN }}
         - name: Validate all add-ons
           run: |
             set -euo pipefail
@@ -836,9 +856,10 @@
       runs-on: ubuntu-latest
       if: github.event_name == 'pull_request'
       steps:
-        - uses: actions/checkout@v4
+        - uses: https://github.com/actions/checkout@v4
           with:
             fetch-depth: 0
+            token: ${{ secrets.FORGEJO_TOKEN }}
         - name: Verify DCO
           run: bash .github/scripts/verify-dco.sh
 
